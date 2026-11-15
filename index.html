@@ -106,7 +106,12 @@ label.k{display:block;font-size:12px;color:var(--mut);margin-top:8px}
       <label class="k">Como o Jarvis te chama</label><input class="f" id="c-usuario">
       <label class="k">Palavra de ativação (usada só na versão do computador)</label><input class="f" id="c-ativ">
       <label class="k">Cidade (clima no resumo)</label><input class="f" id="c-cidade">
-      <label class="k">Voz do Jarvis (instale vozes melhores em Ajustes > Acessibilidade > Conteúdo Falado > Vozes)</label><select class="f" id="c-voz"></select>
+      <label class="k">Voz das respostas</label>
+      <select class="f" id="c-modovoz"><option value="ia">Voz da IA (Gemini): mais natural, usa sua chave do Gemini</option><option value="sistema">Voz do sistema: grátis e sem internet</option></select>
+      <label class="k">Voz da IA</label>
+      <select class="f" id="c-vozia"><option>Kore</option><option>Puck</option><option>Zephyr</option><option>Charon</option><option>Fenrir</option></select>
+      <label class="k">Modelo de voz da IA</label><input class="f" id="c-modvozia" autocapitalize="off" autocorrect="off">
+      <label class="k">Voz do sistema (instale vozes melhores em Ajustes > Acessibilidade > Conteúdo Falado > Vozes)</label><select class="f" id="c-voz"></select>
       <label class="k">Velocidade da fala</label><input class="f" id="c-vel" type="range" min="0.7" max="1.4" step="0.05" value="1">
       <div class="row"><button class="b s" id="c-testa">Testar voz</button></div>
       <div class="row"><button class="b" id="c-save">Salvar ajustes</button></div></div>
@@ -146,7 +151,7 @@ const PADRAO_IAS = [
   {nome:"nvidia", tipo:"openai", gratuito:true, url:"https://integrate.api.nvidia.com/v1/chat/completions", modelo:"meta/llama-3.3-70b-instruct", chave:"", limite_diario:200, ativo:true},
   {nome:"claude", tipo:"claude", gratuito:false, modelo:"claude-sonnet-5-5", chave:"", preco_in_1m:3, preco_out_1m:15, limite_mensal_usd:2, ativo:true}
 ];
-let cfg = Object.assign({nome:"Jarvis", usuario:"chefe", ativacao:"jarvis", cidade:"Cuiaba", limite_pago_total_usd:3, voz:true, vozNome:"", velocidade:1, provedores:PADRAO_IAS}, L.get("cfg", {}));
+let cfg = Object.assign({nome:"Jarvis", usuario:"chefe", ativacao:"jarvis", cidade:"Cuiaba", limite_pago_total_usd:3, voz:true, vozNome:"", velocidade:1, vozIA:true, vozIANome:"Kore", modeloVozIA:"gemini-3.8-flash-tts", limiteVozDia:100, provedores:PADRAO_IAS}, L.get("cfg", {}));
 if (cfg.ativacao === "kobi") cfg.ativacao = "jarvis";
 cfg.nome = "Jarvis";
 let uso = L.get("uso", {});
@@ -183,24 +188,110 @@ function renderVozes(){
 function carregarVoz(){ vozPt = melhorVoz(); renderVozes(); }
 if ("speechSynthesis" in window){ carregarVoz(); speechSynthesis.onvoiceschanged = carregarVoz; }
 // o iOS so libera a fala depois de um toque na tela
-document.addEventListener("touchend", () => { try{ if ("speechSynthesis" in window) speechSynthesis.speak(new SpeechSynthesisUtterance("")); }catch(e){} }, {once:true});
+document.addEventListener("touchend", () => { try{ if ("speechSynthesis" in window) speechSynthesis.speak(new SpeechSynthesisUtterance("")); }catch(e){} try{ audioEl.src = WAV_MUDO; audioEl.play().catch(() => {}); }catch(e){} }, {once:true});
 
-function falar(txt){
-  bolha(txt, "ai");
-  processando = false;
-  if (escutando){ try{ rec && rec.stop(); }catch(e){} }
-  const fimFala = () => { falando = false; $("#orb").classList.remove("on"); if (conversa) setTimeout(iniciarEscuta, 350); };
-  if (!cfg.voz || !("speechSynthesis" in window)){ if (conversa) setTimeout(iniciarEscuta, 350); return; }
+const audioEl = new Audio(); audioEl.setAttribute("playsinline", "");
+const WAV_MUDO = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+let avisouVozIA = false;
+
+function wavDePcm(pcm, taxa){
+  const cab = new ArrayBuffer(44), v = new DataView(cab);
+  const s = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+  s(0, "RIFF"); v.setUint32(4, 36 + pcm.length, true); s(8, "WAVE"); s(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, taxa, true); v.setUint32(28, taxa * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  s(36, "data"); v.setUint32(40, pcm.length, true);
+  const out = new Uint8Array(44 + pcm.length); out.set(new Uint8Array(cab), 0); out.set(pcm, 44); return out;
+}
+function lerVozIA(){
+  cfg.vozIA = $("#c-modovoz").value === "ia";
+  cfg.vozIANome = $("#c-vozia").value || "Kore";
+  cfg.modeloVozIA = $("#c-modvozia").value.trim() || "gemini-3.8-flash-tts";
+}
+
+function falarSistema(txt, fimFala){
+  if (!("speechSynthesis" in window)){ fimFala(); return; }
   try{
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(txt.replace(/[*_#`]/g, ""));
+    const u = new SpeechSynthesisUtterance(txt);
     u.lang = "pt-BR"; if (vozPt) u.voice = vozPt; u.rate = cfg.velocidade || 1;
     u.onstart = () => { falando = true; $("#orb").classList.add("on"); };
     u.onend = fimFala; u.onerror = fimFala;
     speechSynthesis.speak(u);
   }catch(e){ fimFala(); }
 }
-$("#mudo").onclick = () => { cfg.voz = !cfg.voz; saveCfg(); $("#mudo").textContent = cfg.voz ? "🔊" : "🔇"; if (!cfg.voz && "speechSynthesis" in window) speechSynthesis.cancel(); };
+
+// Voz gerada pela própria IA (Gemini TTS). Devolve false se não deu, e aí cai na voz do sistema.
+async function falarIA(txt, fimFala){
+  const pv = {nome: "gemini-voz"};
+  const g = cfg.provedores.find(x => x.nome === "gemini");
+  const u = usoDe("gemini-voz");
+  if (!g || !g.chave || u.bloqueado_ate > Date.now() || (cfg.limiteVozDia && u.chamadas_dia >= cfg.limiteVozDia)) return false;
+  let r;
+  try{
+    r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(cfg.modeloVozIA) + ":generateContent", {
+      method: "POST",
+      headers: {"content-type": "application/json", "x-goog-api-key": g.chave},
+      body: JSON.stringify({
+        contents: [{parts: [{text: txt}]}],
+        generationConfig: {responseModalities: ["AUDIO"],
+          speechConfig: {languageCode: "pt-BR", voiceConfig: {prebuiltVoiceConfig: {voiceName: cfg.vozIANome}}}}
+      })
+    });
+  }catch(e){
+    bloquear(pv, 5); L.set("uso", uso);
+    if (!avisouVozIA){ avisouVozIA = true; aviso("Voz da IA indisponível (rede); usando a voz do sistema."); }
+    return false;
+  }
+  if (!r.ok){
+    const corpo = (await r.text().catch(() => "")).toLowerCase(), c = r.status;
+    if (c === 401 || c === 403) bloquear(pv, 1440);
+    else if (c === 402 || ((c === 400 || c === 429) && PALAVRAS_COTA.some(k => corpo.includes(k)))) bloquear(pv, 0, true);
+    else if (c === 429) bloquear(pv, 10);
+    else bloquear(pv, 5);
+    L.set("uso", uso);
+    if (!avisouVozIA){ avisouVozIA = true; aviso("Voz da IA indisponível (" + c + "); usando a voz do sistema. Confira o modelo de voz em Memória > Ajustes."); }
+    return false;
+  }
+  try{
+    const j = await r.json();
+    const parte = j.candidates[0].content.parts.find(x => x.inlineData);
+    const bin = atob(parte.inlineData.data), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const taxa = parseInt((/rate=(\d+)/.exec(parte.inlineData.mimeType || "") || [])[1], 10) || 24000;
+    const wav = (bytes[0] === 82 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 70) ? bytes : wavDePcm(bytes, taxa);
+    if (audioEl.src && audioEl.src.startsWith("blob:")) URL.revokeObjectURL(audioEl.src);
+    audioEl.src = URL.createObjectURL(new Blob([wav], {type: "audio/wav"}));
+    audioEl.onplay = () => { falando = true; $("#orb").classList.add("on"); };
+    audioEl.onended = fimFala; audioEl.onerror = fimFala;
+    await audioEl.play();
+    u.chamadas_dia++; u.chamadas_mes++; L.set("uso", uso);
+    return true;
+  }catch(e){
+    audioEl.onended = audioEl.onerror = audioEl.onplay = null;
+    bloquear(pv, 5); L.set("uso", uso);
+    if (!avisouVozIA){ avisouVozIA = true; aviso("Não consegui tocar a voz da IA; usando a voz do sistema."); }
+    return false;
+  }
+}
+
+function falar(txt){
+  bolha(txt, "ai");
+  processando = false;
+  if (escutando){ try{ rec && rec.stop(); }catch(e){} }
+  try{ audioEl.pause(); }catch(e){}
+  const fimFala = () => { falando = false; $("#orb").classList.remove("on"); if (conversa) setTimeout(iniciarEscuta, 350); };
+  if (!cfg.voz){ fimFala(); return; }
+  const limpo = txt.replace(/[*_#`]/g, "");
+  if (cfg.vozIA){
+    falando = true; $("#orb").classList.add("on");   // preparando a voz
+    const cai = () => { falando = false; falarSistema(limpo, fimFala); };
+    falarIA(limpo, fimFala).then(ok => { if (!ok) cai(); }).catch(cai);
+    return;
+  }
+  falarSistema(limpo, fimFala);
+}
+$("#mudo").onclick = () => { cfg.voz = !cfg.voz; saveCfg(); $("#mudo").textContent = cfg.voz ? "🔊" : "🔇"; if (!cfg.voz){ try{ audioEl.pause(); }catch(e){} if ("speechSynthesis" in window) speechSynthesis.cancel(); } };
 $("#mudo").textContent = cfg.voz ? "🔊" : "🔇";
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -230,6 +321,7 @@ function iniciarEscuta(){
 }
 $("#mic").onclick = () => {
   if (escutando){ try{ rec && rec.stop(); }catch(e){} return; }
+  try{ audioEl.pause(); }catch(e){}
   if ("speechSynthesis" in window) speechSynthesis.cancel();
   falando = false; processando = false; iniciarEscuta();
 };
@@ -249,6 +341,7 @@ $("#conv").onclick = () => {
     falar("Estou ouvindo, " + cfg.usuario + ".");
   } else {
     try{ rec && rec.stop(); }catch(e){}
+    try{ audioEl.pause(); }catch(e){}
     if ("speechSynthesis" in window) speechSynthesis.cancel();
     falando = false; processando = false;
   }
@@ -535,13 +628,13 @@ $("#es-q").onclick = async () => { const t = $("#es-tema").value.trim(); if(!t) 
 /* ================================= memória ================================= */
 function renderMem(){
   $("#me-l").innerHTML = mem.fatos.length ? mem.fatos.map((f,i) => `<div class="item"><div>${esc(f)}</div><button class="x" data-i="${i}">✕</button></div>`).join("") : '<div class="mut">Nada guardado ainda.</div>';
-  $("#c-usuario").value = cfg.usuario; $("#c-ativ").value = cfg.ativacao; $("#c-cidade").value = cfg.cidade; $("#c-vel").value = cfg.velocidade || 1;
+  $("#c-usuario").value = cfg.usuario; $("#c-ativ").value = cfg.ativacao; $("#c-cidade").value = cfg.cidade; $("#c-vel").value = cfg.velocidade || 1; $("#c-modovoz").value = cfg.vozIA ? "ia" : "sistema"; $("#c-vozia").value = cfg.vozIANome; $("#c-modvozia").value = cfg.modeloVozIA;
 }
 $("#me-add").onclick = () => { const v = $("#me-n").value.trim(); if(!v) return; mem.fatos.push(v); L.set("mem", mem); $("#me-n").value = ""; renderMem(); };
 $("#me-l").onclick = e => { const i = e.target.dataset.i; if(i === undefined) return; mem.fatos.splice(+i,1); L.set("mem", mem); renderMem(); };
-$("#c-save").onclick = () => { cfg.usuario = $("#c-usuario").value.trim() || "chefe"; cfg.ativacao = $("#c-ativ").value.trim().toLowerCase() || "jarvis"; cfg.cidade = $("#c-cidade").value.trim() || "Cuiaba"; cfg.vozNome = $("#c-voz").value; cfg.velocidade = parseFloat($("#c-vel").value) || 1; vozPt = melhorVoz(); saveCfg(); aviso("Ajustes salvos."); };
+$("#c-save").onclick = () => { cfg.usuario = $("#c-usuario").value.trim() || "chefe"; cfg.ativacao = $("#c-ativ").value.trim().toLowerCase() || "jarvis"; cfg.cidade = $("#c-cidade").value.trim() || "Cuiaba"; cfg.vozNome = $("#c-voz").value; cfg.velocidade = parseFloat($("#c-vel").value) || 1; vozPt = melhorVoz(); lerVozIA(); saveCfg(); aviso("Ajustes salvos."); };
 
-$("#c-testa").onclick = () => { cfg.vozNome = $("#c-voz").value; cfg.velocidade = parseFloat($("#c-vel").value) || 1; vozPt = melhorVoz(); falar("Olá, " + cfg.usuario + ". Eu sou o " + cfg.nome + ". Como posso ajudar?"); };
+$("#c-testa").onclick = () => { cfg.vozNome = $("#c-voz").value; cfg.velocidade = parseFloat($("#c-vel").value) || 1; lerVozIA(); vozPt = melhorVoz(); falar("Olá, " + cfg.usuario + ". Eu sou o " + cfg.nome + ". Como posso ajudar?"); };
 
 /* ============================== IAs e créditos ============================= */
 function renderIAs(){
