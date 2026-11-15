@@ -50,6 +50,15 @@ button.x{background:none;border:0;color:var(--bad);font-size:18px}
 .bar>div{height:100%;background:var(--ok)}
 .bar.w>div{background:var(--bad)}
 label.k{display:block;font-size:12px;color:var(--mut);margin-top:8px}
+.msg.md{white-space:normal}
+.md h1,.md h2,.md h3,.md h4{margin:10px 0 4px;line-height:1.25}
+.md h1{font-size:20px}.md h2{font-size:18px}.md h3,.md h4{font-size:16px}
+.md p{margin:6px 0}.md ul,.md ol{margin:6px 0;padding-left:22px}.md li{margin:2px 0}
+.md code{background:#09111f;padding:1px 5px;border-radius:4px;font-size:14px}
+.md pre{overflow-x:auto;background:#09111f;padding:10px;border-radius:8px;border:1px solid var(--line)}
+.md pre code{background:none;padding:0}
+.md a{color:var(--acc)}.md hr{border:0;border-top:1px solid var(--line)}
+textarea.f{resize:vertical;font-family:inherit;line-height:1.4}
 </style>
 </head>
 <body>
@@ -64,6 +73,7 @@ label.k{display:block;font-size:12px;color:var(--mut);margin-top:8px}
   <button data-p="agenda">Lembretes</button>
   <button data-p="fin">Contas</button>
   <button data-p="est">Estudos</button>
+  <button data-p="docs">Documentos</button>
   <button data-p="mem">Memória</button>
   <button data-p="ias">IAs e créditos</button>
 </nav>
@@ -97,6 +107,29 @@ label.k{display:block;font-size:12px;color:var(--mut);margin-top:8px}
     <div class="card"><h3>Revisar</h3><div id="es-card" class="mut">Toque em Revisar para começar.</div>
       <div class="row"><button class="b" id="es-rev">Revisar</button><button class="b s" id="es-show" style="display:none">Ver resposta</button></div></div>
     <div class="card"><h3>Seus flashcards</h3><div id="es-l"></div></div>
+  </section>
+
+  <section class="pane" id="p-docs">
+    <div id="dc-lista">
+      <div class="card"><h3>Pedir um documento ao Jarvis</h3>
+        <textarea class="f" id="dc-pedido" rows="3" placeholder="Ex.: crie um plano de estudos de 4 semanas para concurso de nível médio"></textarea>
+        <div class="row" style="flex-wrap:wrap"><button class="b" id="dc-criar">Criar com o Jarvis</button><button class="b s" id="dc-novo">Em branco</button></div>
+        <div id="dc-msg" class="mut"></div>
+        <div class="mut">Você também pode pedir por voz ou texto na Conversa: “crie uma carta de apresentação…”.</div></div>
+      <div class="card"><h3>Meus documentos</h3><div id="dc-l"></div></div>
+    </div>
+    <div id="dc-editor" style="display:none">
+      <div class="card">
+        <input class="f" id="dc-titulo" placeholder="Título">
+        <textarea class="f" id="dc-texto" rows="16" style="margin-top:8px" placeholder="Escreva em Markdown: # título, ## subtítulo, - lista, **negrito**"></textarea>
+        <div class="row" style="flex-wrap:wrap"><button class="b" id="dc-salvar">Salvar</button><button class="b s" id="dc-prev">Visualizar</button><button class="b s" id="dc-fechar">Voltar</button></div>
+        <div class="row" style="flex-wrap:wrap"><button class="b s" id="dc-copiar">Copiar</button><button class="b s" id="dc-share">Compartilhar</button><button class="b s" id="dc-word">Baixar Word</button><button class="b s" id="dc-pdf">PDF</button><button class="b s" id="dc-md">.md</button></div>
+        <label class="k">Pedir alteração ao Jarvis</label>
+        <div class="row"><input class="f" id="dc-alt" placeholder="Ex.: deixe mais formal e adicione um resumo"><button class="b" id="dc-altbtn">Alterar</button></div>
+        <div id="dc-status" class="mut"></div>
+      </div>
+      <div class="card" id="dc-preview" style="display:none"></div>
+    </div>
   </section>
 
   <section class="pane" id="p-mem">
@@ -159,12 +192,13 @@ let mem = L.get("mem", {fatos:[], hist:[]});
 let agenda = L.get("agenda", []);
 let fin = L.get("fin", {renda:0, contas:[]});
 let cards = L.get("cards", []);
+let docs = L.get("docs", []);
 const saveCfg = () => L.set("cfg", cfg);
 
 /* ================================= conversa ================================ */
 const log = $("#log");
 function bolha(txt, cls){
-  const d = document.createElement("div"); d.className = "msg " + cls; d.textContent = txt;
+  const d = document.createElement("div"); d.className = "msg " + cls + (cls === "ai" ? " md" : ""); if (cls === "ai") d.innerHTML = md(txt); else d.textContent = txt;
   log.appendChild(d); $("#main").scrollTop = $("#main").scrollHeight; return d;
 }
 function aviso(txt){ const d = document.createElement("div"); d.className="sys"; d.textContent=txt; log.appendChild(d); $("#main").scrollTop = $("#main").scrollHeight; }
@@ -282,7 +316,7 @@ function falar(txt){
   try{ audioEl.pause(); }catch(e){}
   const fimFala = () => { falando = false; $("#orb").classList.remove("on"); if (conversa) setTimeout(iniciarEscuta, 350); };
   if (!cfg.voz){ fimFala(); return; }
-  const limpo = txt.replace(/[*_#`]/g, "");
+  const limpo = paraFala(txt);
   if (cfg.vozIA){
     falando = true; $("#orb").classList.add("on");   // preparando a voz
     const cai = () => { falando = false; falarSistema(limpo, fimFala); };
@@ -385,11 +419,11 @@ async function chamar(p, sistema, msgs){
   if (p.tipo === "claude"){
     r = await fetch("https://api.anthropic.com/v1/messages", {method:"POST",
       headers:{"content-type":"application/json","x-api-key":p.chave,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-      body: JSON.stringify({model:p.modelo, max_tokens:700, system:sistema, messages:msgs})});
+      body: JSON.stringify({model:p.modelo, max_tokens:4096, system:sistema, messages:msgs})});
   } else {
     r = await fetch(p.url, {method:"POST",
       headers:{"content-type":"application/json","authorization":"Bearer "+p.chave},
-      body: JSON.stringify({model:p.modelo, max_tokens:700, messages:[{role:"system",content:sistema}, ...msgs]})});
+      body: JSON.stringify({model:p.modelo, max_tokens:4096, messages:[{role:"system",content:sistema}, ...msgs]})});
   }
   if (!r.ok){
     const txt = (await r.text().catch(()=>"")).toLowerCase();
@@ -432,16 +466,24 @@ async function llm(sistema, msgs){
   return "Todas as minhas IAs estão indisponíveis agora, por limite de créditos, falta de chave ou falta de conexão. Confira a aba IAs e créditos.";
 }
 function sistemaPrompt(){
-  let s = `Você é o ${cfg.nome}, assistente pessoal em português do Brasil, inspirado no Jarvis do Homem de Ferro: educado, direto, com leve humor elegante, falando como numa conversa natural. Trate o usuário por '${cfg.usuario}'. Responda em no máximo 3 frases curtas, pois suas respostas serão faladas em voz alta. Não use markdown, listas nem emojis.`;
+  let s = `Você é o ${cfg.nome}, assistente pessoal em português do Brasil, inspirado no Jarvis do Homem de Ferro: educado, direto, com leve humor elegante, falando como numa conversa natural. Trate o usuário por '${cfg.usuario}'. Em conversas simples, responda em até 3 frases curtas, pois serão faladas em voz alta. Quando o pedido exigir mais (explicações, listas, código, textos, traduções, cálculos, planos), responda completo e bem organizado, em Markdown; só um resumo curto é falado e o texto completo aparece na tela. Quando o usuário pedir para CRIAR um documento (carta, ofício, relatório, resumo, plano, currículo, redação, ata, e-mail longo, contrato modelo, roteiro, apresentação em tópicos etc.), responda com a primeira linha exatamente '[DOC] Título do documento' e, a partir da linha seguinte, somente o documento completo em Markdown, sem comentários extras. Você é um assistente de IA completo: ajuda com estudos, escrita, programação, análises, ideias e o que mais for pedido. Nesta versão você não acessa a internet nem vê imagens.`;
   if (mem.fatos.length) s += " Fatos que você sabe sobre o usuário: " + mem.fatos.slice(-30).join("; ") + ".";
   return s;
 }
 async function conversar(t){
   mem.hist = (mem.hist || []).slice(-10); mem.hist.push({role:"user", content:t});
-  const r = await llm(sistemaPrompt(), mem.hist);
-  mem.hist.push({role:"assistant", content:r}); mem.hist = mem.hist.slice(-20); L.set("mem", mem);
+  let r = await llm(sistemaPrompt(), mem.hist);
+  const dm = /^\s*\[DOC\]\s*([^\n]+)\n?([\s\S]*)$/.exec(r);
+  if (dm){
+    docPendente = criarDoc(dm[1].trim(), dm[2].trim());
+    r = `Criei o documento «${docPendente.titulo}». Ele está na aba Documentos, onde você pode editar, pedir alterações, copiar, compartilhar e baixar em Word ou PDF.`;
+  }
+  if (r.startsWith("Todas as minhas IAs")) mem.hist.pop();
+  else mem.hist.push({role:"assistant", content: r.length > 1500 ? r.slice(0, 1500) + "…" : r});
+  mem.hist = mem.hist.slice(-20); L.set("mem", mem);
   return r;
 }
+let docPendente = null;
 
 /* ================================ comandos ================================= */
 const sem = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -484,7 +526,7 @@ async function comando(orig){
   if (/(modo conversa|vamos conversar|conversar por voz)/.test(t)){ conversa = true; falhas = 0; atualizaConversa(); return "Estou ouvindo, " + cfg.usuario + "."; }
 
   if (/\b(ajuda|o que voce faz)\b/.test(t))
-    return "Eu faço: conversar por voz (toque em 💬 ou diga modo conversa), lembretes, resumo matinal, contas, flashcards e questões, guardo o que você mandar lembrar, e troco de IA sozinho quando o crédito acaba. No iPhone eu não controlo apps nem arquivos; isso só a versão do computador faz.";
+    return "Eu faço: conversar por voz (toque em 💬 ou diga modo conversa), criar documentos, responder perguntas e escrever textos, lembretes, resumo matinal, contas, flashcards e questões, guardo o que você mandar lembrar, e troco de IA sozinho quando o crédito acaba. No iPhone eu não controlo apps nem arquivos; isso só a versão do computador faz.";
 
   if (/(quanto gastei|gasto das ias|status das ias|uso das ias|creditos|qual ia)/.test(t)){
     const partes = cfg.provedores.map(p => {
@@ -562,6 +604,7 @@ async function entrada(txt){
   try{ r = await comando(txt); }catch(e){ r = "Tive um problema nessa função."; }
   if (r === null) r = await conversar(txt);
   ele.remove(); falar(r);
+  if (docPendente){ cartaoDoc(docPendente); docPendente = null; }
 }
 
 async function questao(tema){
@@ -677,17 +720,147 @@ $("#ia-l").onclick = e => {
   [cfg.provedores[i], cfg.provedores[j]] = [cfg.provedores[j], cfg.provedores[i]]; saveCfg(); renderIAs();
 };
 
+/* ================================== documentos ================================= */
+function md(src){
+  let s = esc(src);
+  const blocos = [];
+  s = s.replace(/```(?:\w+)?\n([\s\S]*?)```/g, (_, c) => { blocos.push(c); return "\u0000" + (blocos.length - 1) + "\u0000"; });
+  const inline = t => t.replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+    .replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1<i>$2</i>").replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  let out = "", lista = null;
+  const fecha = () => { if (lista){ out += "</" + lista + ">"; lista = null; } };
+  for (const l of s.split("\n")){
+    let m;
+    if ((m = /^\u0000(\d+)\u0000$/.exec(l.trim()))){ fecha(); out += "<pre><code>" + blocos[+m[1]] + "</code></pre>"; }
+    else if ((m = /^(#{1,4})\s+(.*)$/.exec(l))){ fecha(); out += "<h" + m[1].length + ">" + inline(m[2]) + "</h" + m[1].length + ">"; }
+    else if (/^\s*[-*•]\s+/.test(l)){ if (lista !== "ul"){ fecha(); out += "<ul>"; lista = "ul"; } out += "<li>" + inline(l.replace(/^\s*[-*•]\s+/, "")) + "</li>"; }
+    else if (/^\s*\d+[.)]\s+/.test(l)){ if (lista !== "ol"){ fecha(); out += "<ol>"; lista = "ol"; } out += "<li>" + inline(l.replace(/^\s*\d+[.)]\s+/, "")) + "</li>"; }
+    else if (/^\s*---+\s*$/.test(l)){ fecha(); out += "<hr>"; }
+    else if (!l.trim()){ fecha(); }
+    else { fecha(); out += "<p>" + inline(l) + "</p>"; }
+  }
+  fecha();
+  return out;
+}
+function paraFala(t){
+  let s = t.replace(/```[\s\S]*?```/g, " trecho de código na tela ").replace(/https?:\/\/\S+/g, " link ")
+    .replace(/[*_#`>|]/g, "").replace(/^\s*[-•]\s+/gm, "").replace(/\n+/g, ". ").replace(/\.\s*\./g, ".").replace(/\s+/g, " ").trim();
+  if (s.length <= 380) return s;
+  const corte = s.slice(0, 380), i = Math.max(corte.lastIndexOf(". "), corte.lastIndexOf("? "), corte.lastIndexOf("! "));
+  return (i > 120 ? corte.slice(0, i + 1) : corte) + " O texto completo está na tela.";
+}
+
+let docAtual = null;
+const SYS_DOC = "Você escreve documentos completos em português do Brasil, bem organizados, em Markdown. Responda com a primeira linha exatamente '[DOC] Título do documento' e, a partir da linha seguinte, somente o documento, sem comentários extras.";
+const nomeArq = t => (t || "documento").replace(/[\\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) || "documento";
+
+function criarDoc(titulo, texto){
+  const d = {id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), titulo: titulo || "Novo documento", texto: texto || "", criado: Date.now(), atualizado: Date.now()};
+  docs.unshift(d); L.set("docs", docs); renderDocs(); return d;
+}
+function renderDocs(){
+  $("#dc-l").innerHTML = docs.length
+    ? docs.map(d => `<div class="item"><div data-open="${d.id}" style="flex:1;cursor:pointer">${esc(d.titulo)}<div class="mut">${fmt(d.atualizado)} · ${d.texto.length} caracteres</div></div><button class="x" data-del="${d.id}">✕</button></div>`).join("")
+    : '<div class="mut">Nenhum documento ainda.</div>';
+}
+function abrirDoc(id){
+  const d = docs.find(x => x.id === id); if (!d) return;
+  docAtual = d; abaVai("docs");
+  $("#dc-lista").style.display = "none"; $("#dc-editor").style.display = "";
+  $("#dc-titulo").value = d.titulo; $("#dc-texto").value = d.texto; $("#dc-alt").value = "";
+  $("#dc-preview").style.display = "none"; $("#dc-prev").textContent = "Visualizar"; $("#dc-status").textContent = "";
+}
+function fecharDoc(){ docAtual = null; $("#dc-editor").style.display = "none"; $("#dc-lista").style.display = ""; renderDocs(); }
+function gravarDoc(){
+  if (!docAtual) return;
+  docAtual.titulo = $("#dc-titulo").value.trim() || "Sem título"; docAtual.texto = $("#dc-texto").value; docAtual.atualizado = Date.now();
+  L.set("docs", docs);
+}
+function cartaoDoc(d){
+  const el = document.createElement("div"); el.className = "msg ai";
+  const b = document.createElement("button"); b.className = "b"; b.textContent = "Abrir documento: " + d.titulo; b.onclick = () => abrirDoc(d.id);
+  el.appendChild(b); log.appendChild(el); $("#main").scrollTop = $("#main").scrollHeight;
+}
+function htmlDoc(d){
+  const tit = /^\s*#\s/.test(d.texto) ? "" : "<h1>" + esc(d.titulo) + "</h1>";
+  return '<!doctype html><html><head><meta charset="utf-8"><title>' + esc(d.titulo) + '</title><style>body{font-family:Calibri,Arial,sans-serif;font-size:12pt;line-height:1.45;margin:2cm;color:#000}h1{font-size:20pt}h2{font-size:16pt}h3{font-size:13pt}pre{background:#eee;padding:8px;white-space:pre-wrap}</style></head><body>' + tit + md(d.texto) + '</body></html>';
+}
+function baixar(nome, tipo, conteudo){
+  const url = URL.createObjectURL(new Blob([conteudo], {type: tipo})), a = document.createElement("a");
+  a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+async function copiarTexto(t){
+  try{ await navigator.clipboard.writeText(t); return; }catch(e){}
+  const ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta); ta.select();
+  try{ document.execCommand("copy"); }catch(e){}
+  ta.remove();
+}
+async function compartilharDoc(d){
+  try{
+    const f = new File([htmlDoc(d)], nomeArq(d.titulo) + ".doc", {type: "application/msword"});
+    if (navigator.canShare && navigator.canShare({files: [f]})){ await navigator.share({files: [f], title: d.titulo}); return; }
+    if (navigator.share){ await navigator.share({title: d.titulo, text: d.texto}); return; }
+  }catch(e){ if (e && e.name === "AbortError") return; }
+  await copiarTexto(d.texto); $("#dc-status").textContent = "Compartilhar não está disponível aqui; o texto foi copiado.";
+}
+function pdfDoc(d){
+  const w = window.open("", "_blank");
+  if (!w){ $("#dc-status").textContent = "O navegador bloqueou a janela. Permita pop-ups e tente de novo."; return; }
+  w.document.write(htmlDoc(d)); w.document.close(); w.focus(); setTimeout(() => { try{ w.print(); }catch(e){} }, 500);
+}
+
+$("#dc-criar").onclick = async () => {
+  const pedido = $("#dc-pedido").value.trim(); if (!pedido) return;
+  $("#dc-criar").disabled = true; $("#dc-msg").textContent = "Criando o documento…";
+  const r = await llm(SYS_DOC, [{role: "user", content: pedido}]);
+  $("#dc-criar").disabled = false;
+  if (r.startsWith("Todas as minhas IAs")){ $("#dc-msg").textContent = r; return; }
+  const dm = /^\s*\[DOC\]\s*([^\n]+)\n?([\s\S]*)$/.exec(r);
+  const d = criarDoc(dm ? dm[1].trim() : pedido.split(/\s+/).slice(0, 6).join(" "), dm ? dm[2].trim() : r.trim());
+  $("#dc-pedido").value = ""; $("#dc-msg").textContent = ""; abrirDoc(d.id);
+};
+$("#dc-novo").onclick = () => abrirDoc(criarDoc("Novo documento", "").id);
+$("#dc-l").onclick = e => {
+  const a = e.target.closest("[data-open]"), x = e.target.dataset.del;
+  if (x){ docs = docs.filter(d => d.id !== x); L.set("docs", docs); renderDocs(); }
+  else if (a) abrirDoc(a.dataset.open);
+};
+$("#dc-fechar").onclick = () => { gravarDoc(); fecharDoc(); };
+$("#dc-salvar").onclick = () => { gravarDoc(); $("#dc-status").textContent = "Salvo."; };
+$("#dc-texto").addEventListener("input", gravarDoc);
+$("#dc-titulo").addEventListener("input", gravarDoc);
+$("#dc-prev").onclick = () => {
+  gravarDoc(); const pv = $("#dc-preview"), ver = pv.style.display === "none";
+  pv.style.display = ver ? "" : "none"; if (ver) pv.innerHTML = '<div class="md">' + md(docAtual.texto) + '</div>';
+  $("#dc-prev").textContent = ver ? "Ocultar" : "Visualizar";
+};
+$("#dc-copiar").onclick = async () => { gravarDoc(); await copiarTexto(docAtual.texto); $("#dc-status").textContent = "Texto copiado."; };
+$("#dc-share").onclick = () => { gravarDoc(); compartilharDoc(docAtual); };
+$("#dc-word").onclick = () => { gravarDoc(); baixar(nomeArq(docAtual.titulo) + ".doc", "application/msword", htmlDoc(docAtual)); $("#dc-status").textContent = "Se não baixar, use Compartilhar > Salvar em Arquivos."; };
+$("#dc-pdf").onclick = () => { gravarDoc(); pdfDoc(docAtual); $("#dc-status").textContent = "Na tela de impressão, use Compartilhar > Salvar em Arquivos para guardar o PDF."; };
+$("#dc-md").onclick = () => { gravarDoc(); baixar(nomeArq(docAtual.titulo) + ".md", "text/markdown", "# " + docAtual.titulo + "\n\n" + docAtual.texto); };
+$("#dc-altbtn").onclick = async () => {
+  if (!docAtual) return; const instr = $("#dc-alt").value.trim(); if (!instr) return;
+  gravarDoc(); $("#dc-status").textContent = "Alterando o documento…";
+  const r = await llm("Você revisa documentos em português do Brasil. Devolva APENAS o documento completo revisado, em Markdown, sem comentários.",
+    [{role: "user", content: "Documento atual:\n\n" + docAtual.texto + "\n\nAlteração pedida: " + instr}]);
+  if (r.startsWith("Todas as minhas IAs")){ $("#dc-status").textContent = r; return; }
+  docAtual.texto = r.replace(/^\s*\[DOC\][^\n]*\n/, "").trim(); docAtual.atualizado = Date.now(); L.set("docs", docs);
+  $("#dc-texto").value = docAtual.texto; $("#dc-alt").value = ""; $("#dc-status").textContent = "Documento alterado.";
+};
+
 /* ================================== abas =================================== */
 function abaVai(n){
   document.querySelectorAll("#nav button").forEach(b => b.classList.toggle("sel", b.dataset.p === n));
   document.querySelectorAll(".pane").forEach(p => p.classList.toggle("sel", p.id === "p-" + n));
   $("#foot").style.display = (n === "chat") ? "" : "none";
   if (n === "ias") renderIAs();
+  if (n === "docs") renderDocs();
   if (n === "chat") $("#main").scrollTop = $("#main").scrollHeight;
 }
 $("#nav").onclick = e => { const n = e.target.dataset.p; if (n) abaVai(n); };
 
-renderAgenda(); renderFin(); renderCards(); renderMem();
+renderAgenda(); renderFin(); renderCards(); renderMem(); renderDocs();
 aviso("Toque no 💬 para conversar por voz sem parar, ou no 🎤 para falar uma vez. Diga “ajuda” para ver o que eu faço.");
 if (!cfg.provedores.some(p => p.chave)) aviso("Falta configurar pelo menos uma IA na aba IAs e créditos.");
 try{ if ("Notification" in window && Notification.permission === "default") $("#ag-add").addEventListener("click", () => Notification.requestPermission(), {once:true}); }catch(e){}
