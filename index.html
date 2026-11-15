@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Kobi">
+<meta name="apple-mobile-web-app-title" content="Jarvis">
 <meta name="theme-color" content="#060b14">
-<title>Kobi</title>
+<title>Jarvis</title>
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%23060b14'/%3E%3Ccircle cx='90' cy='90' r='52' fill='none' stroke='%2300d4ff' stroke-width='8'/%3E%3Ccircle cx='90' cy='90' r='22' fill='%2300d4ff'/%3E%3C/svg%3E">
 <style>
 :root{--bg:#060b14;--card:#0d1626;--line:#1b2a44;--acc:#00d4ff;--txt:#e6f1ff;--mut:#7f93b2;--ok:#3ddc97;--bad:#ff6b6b}
@@ -55,8 +55,9 @@ label.k{display:block;font-size:12px;color:var(--mut);margin-top:8px}
 <body>
 <header>
   <div class="orb" id="orb"><i></i></div>
-  <h1>Kobi<small id="subt">assistente pessoal</small></h1>
-  <button class="round" id="mudo" title="Voz do Kobi" style="width:38px;height:38px;font-size:17px">🔊</button>
+  <h1>Jarvis<small id="subt">assistente pessoal</small></h1>
+  <button class="round" id="conv" title="Modo conversa" style="width:38px;height:38px;font-size:17px">💬</button>
+  <button class="round" id="mudo" title="Voz do Jarvis" style="width:38px;height:38px;font-size:17px">🔊</button>
 </header>
 <nav id="nav">
   <button data-p="chat" class="sel">Conversa</button>
@@ -99,23 +100,26 @@ label.k{display:block;font-size:12px;color:var(--mut);margin-top:8px}
   </section>
 
   <section class="pane" id="p-mem">
-    <div class="card"><h3>O que o Kobi sabe sobre você</h3><div id="me-l"></div>
+    <div class="card"><h3>O que o Jarvis sabe sobre você</h3><div id="me-l"></div>
       <div class="row"><input class="f" id="me-n" placeholder="Novo fato"><button class="b" id="me-add">+</button></div></div>
     <div class="card"><h3>Ajustes</h3>
-      <label class="k">Como o Kobi te chama</label><input class="f" id="c-usuario">
-      <label class="k">Palavra de ativação (modo escuta contínua)</label><input class="f" id="c-ativ">
+      <label class="k">Como o Jarvis te chama</label><input class="f" id="c-usuario">
+      <label class="k">Palavra de ativação (usada só na versão do computador)</label><input class="f" id="c-ativ">
       <label class="k">Cidade (clima no resumo)</label><input class="f" id="c-cidade">
+      <label class="k">Voz do Jarvis (instale vozes melhores em Ajustes > Acessibilidade > Conteúdo Falado > Vozes)</label><select class="f" id="c-voz"></select>
+      <label class="k">Velocidade da fala</label><input class="f" id="c-vel" type="range" min="0.7" max="1.4" step="0.05" value="1">
+      <div class="row"><button class="b s" id="c-testa">Testar voz</button></div>
       <div class="row"><button class="b" id="c-save">Salvar ajustes</button></div></div>
   </section>
 
   <section class="pane" id="p-ias">
     <div class="card"><h3>Limite de gasto com IAs pagas</h3>
-      <label class="k">Total por mês (US$) — acima disso o Kobi só usa as gratuitas</label>
+      <label class="k">Total por mês (US$) — acima disso o Jarvis só usa as gratuitas</label>
       <input class="f" id="ia-lim" inputmode="decimal">
       <div id="ia-gasto" class="mut" style="margin-top:8px"></div><div class="bar" id="ia-bar" style="margin-top:6px"><div></div></div></div>
     <div id="ia-l"></div>
     <div class="row"><button class="b" id="ia-save">Salvar IAs</button><button class="b s" id="ia-zera">Zerar contadores</button></div>
-    <div class="mut" style="margin-top:8px">A ordem é a prioridade: o Kobi usa a primeira disponível e passa para a próxima sozinho quando acabar o crédito, bater o limite ou der erro. Chaves ficam só neste aparelho. Confirme modelos, cotas gratuitas e preços nos sites de cada serviço.</div>
+    <div class="mut" style="margin-top:8px">A ordem é a prioridade: o Jarvis usa a primeira disponível e passa para a próxima sozinho quando acabar o crédito, bater o limite ou der erro. Chaves ficam só neste aparelho. Confirme modelos, cotas gratuitas e preços nos sites de cada serviço.</div>
   </section>
 </main>
 <footer id="foot">
@@ -142,7 +146,9 @@ const PADRAO_IAS = [
   {nome:"nvidia", tipo:"openai", gratuito:true, url:"https://integrate.api.nvidia.com/v1/chat/completions", modelo:"meta/llama-3.3-70b-instruct", chave:"", limite_diario:200, ativo:true},
   {nome:"claude", tipo:"claude", gratuito:false, modelo:"claude-sonnet-5-5", chave:"", preco_in_1m:3, preco_out_1m:15, limite_mensal_usd:2, ativo:true}
 ];
-let cfg = Object.assign({usuario:"chefe", ativacao:"kobi", cidade:"Cuiaba", limite_pago_total_usd:3, voz:true, provedores:PADRAO_IAS}, L.get("cfg", {}));
+let cfg = Object.assign({nome:"Jarvis", usuario:"chefe", ativacao:"jarvis", cidade:"Cuiaba", limite_pago_total_usd:3, voz:true, vozNome:"", velocidade:1, provedores:PADRAO_IAS}, L.get("cfg", {}));
+if (cfg.ativacao === "kobi") cfg.ativacao = "jarvis";
+cfg.nome = "Jarvis";
 let uso = L.get("uso", {});
 let mem = L.get("mem", {fatos:[], hist:[]});
 let agenda = L.get("agenda", []);
@@ -158,44 +164,99 @@ function bolha(txt, cls){
 }
 function aviso(txt){ const d = document.createElement("div"); d.className="sys"; d.textContent=txt; log.appendChild(d); $("#main").scrollTop = $("#main").scrollHeight; }
 
-/* ==================================== voz ================================== */
-let vozPt = null;
-function carregarVoz(){
-  const vs = speechSynthesis.getVoices();
-  vozPt = vs.find(v => /pt[-_]BR/i.test(v.lang)) || vs.find(v => /^pt/i.test(v.lang)) || null;
+/* ============================ voz e conversa por voz ======================= */
+let falando = false, processando = false, conversa = false, vozPt = null, wake = null, falhas = 0;
+
+function melhorVoz(){
+  if (!("speechSynthesis" in window)) return null;
+  const vs = speechSynthesis.getVoices().filter(v => /^pt/i.test(v.lang));
+  if (!vs.length) return null;
+  if (cfg.vozNome){ const m = vs.find(v => v.name === cfg.vozNome); if (m) return m; }
+  const rank = v => (/premium|aprimorad|enhanced/i.test(v.name) ? 3 : 0) + (/pt[-_]BR/i.test(v.lang) ? 2 : 0) + (/luciana|felipe/i.test(v.name) ? 1 : 0);
+  return vs.slice().sort((a, b) => rank(b) - rank(a))[0];
 }
+function renderVozes(){
+  const el = $("#c-voz"); if (!el || !("speechSynthesis" in window)) return;
+  const vs = speechSynthesis.getVoices().filter(v => /^pt/i.test(v.lang));
+  el.innerHTML = '<option value="">Automática</option>' + vs.map(v => `<option value="${esc(v.name)}" ${v.name === cfg.vozNome ? "selected" : ""}>${esc(v.name)} (${esc(v.lang)})</option>`).join("");
+}
+function carregarVoz(){ vozPt = melhorVoz(); renderVozes(); }
 if ("speechSynthesis" in window){ carregarVoz(); speechSynthesis.onvoiceschanged = carregarVoz; }
+// o iOS so libera a fala depois de um toque na tela
+document.addEventListener("touchend", () => { try{ if ("speechSynthesis" in window) speechSynthesis.speak(new SpeechSynthesisUtterance("")); }catch(e){} }, {once:true});
+
 function falar(txt){
   bolha(txt, "ai");
-  if (!cfg.voz || !("speechSynthesis" in window)) return;
+  processando = false;
+  if (escutando){ try{ rec && rec.stop(); }catch(e){} }
+  const fimFala = () => { falando = false; $("#orb").classList.remove("on"); if (conversa) setTimeout(iniciarEscuta, 350); };
+  if (!cfg.voz || !("speechSynthesis" in window)){ if (conversa) setTimeout(iniciarEscuta, 350); return; }
   try{
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(txt.replace(/[*_#`]/g,""));
-    u.lang = "pt-BR"; if (vozPt) u.voice = vozPt;
-    u.onstart = () => $("#orb").classList.add("on");
-    u.onend = u.onerror = () => $("#orb").classList.remove("on");
+    const u = new SpeechSynthesisUtterance(txt.replace(/[*_#`]/g, ""));
+    u.lang = "pt-BR"; if (vozPt) u.voice = vozPt; u.rate = cfg.velocidade || 1;
+    u.onstart = () => { falando = true; $("#orb").classList.add("on"); };
+    u.onend = fimFala; u.onerror = fimFala;
     speechSynthesis.speak(u);
-  }catch(e){}
+  }catch(e){ fimFala(); }
 }
-$("#mudo").onclick = () => { cfg.voz = !cfg.voz; saveCfg(); $("#mudo").textContent = cfg.voz ? "🔊" : "🔇"; if(!cfg.voz) speechSynthesis.cancel(); };
+$("#mudo").onclick = () => { cfg.voz = !cfg.voz; saveCfg(); $("#mudo").textContent = cfg.voz ? "🔊" : "🔇"; if (!cfg.voz && "speechSynthesis" in window) speechSynthesis.cancel(); };
 $("#mudo").textContent = cfg.voz ? "🔊" : "🔇";
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec = null, escutando = false;
-function escutar(){
-  if (!SR){ aviso("Seu navegador não tem reconhecimento de voz. Use o teclado (no iPhone, o microfone do teclado também serve)."); return; }
-  if (escutando){ rec && rec.stop(); return; }
-  rec = new SR(); rec.lang = "pt-BR"; rec.interimResults = false; rec.maxAlternatives = 1;
+function iniciarEscuta(){
+  if (!SR){ aviso("Seu navegador não tem reconhecimento de voz. Use o teclado (o microfone do teclado do iPhone também serve)."); conversa = false; atualizaConversa(); return; }
+  if (escutando || falando || processando) return;
+  rec = new SR(); rec.lang = "pt-BR"; rec.interimResults = false; rec.maxAlternatives = 1; rec.continuous = false;
+  let ouviu = false;
   rec.onstart = () => { escutando = true; $("#mic").classList.add("rec"); $("#orb").classList.add("on"); };
-  rec.onend = () => { escutando = false; $("#mic").classList.remove("rec"); $("#orb").classList.remove("on"); };
-  rec.onerror = e => { aviso("Microfone: " + (e.error === "not-allowed" ? "permissão negada (Ajustes > Safari > Microfone)." : e.error)); };
-  rec.onresult = e => { const t = e.results[0][0].transcript; entrada(t); };
-  try{ speechSynthesis.cancel(); rec.start(); }catch(e){}
+  rec.onend = () => {
+    escutando = false; $("#mic").classList.remove("rec"); if (!falando) $("#orb").classList.remove("on");
+    if (conversa && !ouviu && !falando && !processando){
+      falhas++;
+      if (falhas > 6){ conversa = false; atualizaConversa(); aviso("Parei de ouvir por falta de fala. Toque em 💬 para continuar."); }
+      else setTimeout(iniciarEscuta, 400);
+    }
+  };
+  rec.onerror = e => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed"){
+      conversa = false; atualizaConversa();
+      aviso("Microfone bloqueado ou o iOS pediu um toque. Toque no 🎤 (ou em Ajustes > Safari > Microfone, permita).");
+    } else if (e.error !== "no-speech" && e.error !== "aborted") aviso("Microfone: " + e.error);
+  };
+  rec.onresult = e => { ouviu = true; falhas = 0; processando = true; entrada(e.results[0][0].transcript); };
+  try{ rec.start(); }catch(e){ escutando = false; }
 }
-$("#mic").onclick = escutar;
-function enviarTexto(){ const t = $("#txt").value.trim(); if(!t) return; $("#txt").value = ""; entrada(t); }
+$("#mic").onclick = () => {
+  if (escutando){ try{ rec && rec.stop(); }catch(e){} return; }
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  falando = false; processando = false; iniciarEscuta();
+};
+
+function atualizaConversa(){
+  $("#conv").classList.toggle("rec", conversa);
+  $("#subt").textContent = conversa ? "modo conversa ligado" : (ultimaIA ? "IA: " + ultimaIA : "assistente pessoal");
+  try{
+    if (conversa && "wakeLock" in navigator){ navigator.wakeLock.request("screen").then(w => { wake = w; }).catch(() => {}); }
+    else if (wake){ wake.release(); wake = null; }
+  }catch(e){}
+}
+$("#conv").onclick = () => {
+  conversa = !conversa; falhas = 0; atualizaConversa();
+  if (conversa){
+    aviso("Modo conversa: fale, eu respondo em voz e volto a ouvir. Toque em 💬 para parar.");
+    falar("Estou ouvindo, " + cfg.usuario + ".");
+  } else {
+    try{ rec && rec.stop(); }catch(e){}
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
+    falando = false; processando = false;
+  }
+};
+
+function enviarTexto(){ const t = $("#txt").value.trim(); if (!t) return; $("#txt").value = ""; entrada(t); }
 $("#send").onclick = enviarTexto;
-$("#txt").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); enviarTexto(); } });
+$("#txt").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); enviarTexto(); } });
 
 /* ==================== IAs com troca automática e limite =================== */
 const PALAVRAS_COTA = ["quota","credit","billing","insufficient","exceeded","balance"];
@@ -278,7 +339,7 @@ async function llm(sistema, msgs){
   return "Todas as minhas IAs estão indisponíveis agora, por limite de créditos, falta de chave ou falta de conexão. Confira a aba IAs e créditos.";
 }
 function sistemaPrompt(){
-  let s = `Você é o Kobi, assistente pessoal em português do Brasil, inspirado no Jarvis: educado, direto, com leve humor elegante. Trate o usuário por '${cfg.usuario}'. Responda em no máximo 3 frases curtas, pois suas respostas serão faladas em voz alta. Não use markdown, listas nem emojis.`;
+  let s = `Você é o ${cfg.nome}, assistente pessoal em português do Brasil, inspirado no Jarvis do Homem de Ferro: educado, direto, com leve humor elegante, falando como numa conversa natural. Trate o usuário por '${cfg.usuario}'. Responda em no máximo 3 frases curtas, pois suas respostas serão faladas em voz alta. Não use markdown, listas nem emojis.`;
   if (mem.fatos.length) s += " Fatos que você sabe sobre o usuário: " + mem.fatos.slice(-30).join("; ") + ".";
   return s;
 }
@@ -326,8 +387,11 @@ async function clima(){
 async function comando(orig){
   const t = sem(orig);
 
+  if (/(parar conversa|encerrar conversa|sair do modo conversa|modo texto)/.test(t)){ conversa = false; atualizaConversa(); return "Certo, parei de ouvir. Toque em 💬 para conversar de novo."; }
+  if (/(modo conversa|vamos conversar|conversar por voz)/.test(t)){ conversa = true; falhas = 0; atualizaConversa(); return "Estou ouvindo, " + cfg.usuario + "."; }
+
   if (/\b(ajuda|o que voce faz)\b/.test(t))
-    return "Eu faço: conversar, lembretes, resumo matinal, contas, flashcards e questões, guardo o que você mandar lembrar, e troco de IA sozinho quando o crédito acaba. No iPhone eu não controlo apps nem arquivos; isso só a versão do computador faz.";
+    return "Eu faço: conversar por voz (toque em 💬 ou diga modo conversa), lembretes, resumo matinal, contas, flashcards e questões, guardo o que você mandar lembrar, e troco de IA sozinho quando o crédito acaba. No iPhone eu não controlo apps nem arquivos; isso só a versão do computador faz.";
 
   if (/(quanto gastei|gasto das ias|status das ias|uso das ias|creditos|qual ia)/.test(t)){
     const partes = cfg.provedores.map(p => {
@@ -397,6 +461,7 @@ async function comando(orig){
 }
 
 async function entrada(txt){
+  processando = true;
   bolha(txt, "me");
   abaVai("chat");
   const ele = bolha("…", "ai");
@@ -426,7 +491,7 @@ function vigia(){
   const agora = Date.now(); let mudou = false;
   agenda.forEach(l => { if (!l.feito && l.quando <= agora){ l.feito = true; mudou = true;
     falar(`${cfg.usuario}, lembrete: ${l.texto}`);
-    try{ if ("Notification" in window && Notification.permission === "granted") new Notification("Kobi", {body:l.texto}); }catch(e){}
+    try{ if ("Notification" in window && Notification.permission === "granted") new Notification("Jarvis", {body:l.texto}); }catch(e){}
     try{ navigator.vibrate && navigator.vibrate([200,100,200]); }catch(e){}
   }});
   if (mudou){ L.set("agenda", agenda); renderAgenda(); }
@@ -470,11 +535,13 @@ $("#es-q").onclick = async () => { const t = $("#es-tema").value.trim(); if(!t) 
 /* ================================= memória ================================= */
 function renderMem(){
   $("#me-l").innerHTML = mem.fatos.length ? mem.fatos.map((f,i) => `<div class="item"><div>${esc(f)}</div><button class="x" data-i="${i}">✕</button></div>`).join("") : '<div class="mut">Nada guardado ainda.</div>';
-  $("#c-usuario").value = cfg.usuario; $("#c-ativ").value = cfg.ativacao; $("#c-cidade").value = cfg.cidade;
+  $("#c-usuario").value = cfg.usuario; $("#c-ativ").value = cfg.ativacao; $("#c-cidade").value = cfg.cidade; $("#c-vel").value = cfg.velocidade || 1;
 }
 $("#me-add").onclick = () => { const v = $("#me-n").value.trim(); if(!v) return; mem.fatos.push(v); L.set("mem", mem); $("#me-n").value = ""; renderMem(); };
 $("#me-l").onclick = e => { const i = e.target.dataset.i; if(i === undefined) return; mem.fatos.splice(+i,1); L.set("mem", mem); renderMem(); };
-$("#c-save").onclick = () => { cfg.usuario = $("#c-usuario").value.trim() || "chefe"; cfg.ativacao = $("#c-ativ").value.trim().toLowerCase() || "kobi"; cfg.cidade = $("#c-cidade").value.trim() || "Cuiaba"; saveCfg(); aviso("Ajustes salvos."); };
+$("#c-save").onclick = () => { cfg.usuario = $("#c-usuario").value.trim() || "chefe"; cfg.ativacao = $("#c-ativ").value.trim().toLowerCase() || "jarvis"; cfg.cidade = $("#c-cidade").value.trim() || "Cuiaba"; cfg.vozNome = $("#c-voz").value; cfg.velocidade = parseFloat($("#c-vel").value) || 1; vozPt = melhorVoz(); saveCfg(); aviso("Ajustes salvos."); };
+
+$("#c-testa").onclick = () => { cfg.vozNome = $("#c-voz").value; cfg.velocidade = parseFloat($("#c-vel").value) || 1; vozPt = melhorVoz(); falar("Olá, " + cfg.usuario + ". Eu sou o " + cfg.nome + ". Como posso ajudar?"); };
 
 /* ============================== IAs e créditos ============================= */
 function renderIAs(){
@@ -528,7 +595,7 @@ function abaVai(n){
 $("#nav").onclick = e => { const n = e.target.dataset.p; if (n) abaVai(n); };
 
 renderAgenda(); renderFin(); renderCards(); renderMem();
-aviso("Toque no 🎤 para falar com o Kobi ou digite. Diga “ajuda” para ver o que ele faz.");
+aviso("Toque no 💬 para conversar por voz sem parar, ou no 🎤 para falar uma vez. Diga “ajuda” para ver o que eu faço.");
 if (!cfg.provedores.some(p => p.chave)) aviso("Falta configurar pelo menos uma IA na aba IAs e créditos.");
 try{ if ("Notification" in window && Notification.permission === "default") $("#ag-add").addEventListener("click", () => Notification.requestPermission(), {once:true}); }catch(e){}
 </script>
