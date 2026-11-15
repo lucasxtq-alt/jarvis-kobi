@@ -137,8 +137,8 @@ const brl = v => "R$ " + Number(v).toLocaleString("pt-BR",{minimumFractionDigits
 const num = s => { s = String(s).trim(); if (s.includes(",")) s = s.replace(/\./g,"").replace(",","."); return parseFloat(s); };
 
 const PADRAO_IAS = [
-  {nome:"groq", tipo:"openai", gratuito:true, url:"https://api.groq.com/openai/v1/chat/completions", modelo:"llama-3.3-70b-versatile", chave:"", limite_diario:400, ativo:true},
-  {nome:"gemini", tipo:"openai", gratuito:true, url:"https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", modelo:"gemini-2.0-flash", chave:"", limite_diario:200, ativo:true},
+  {nome:"groq", tipo:"openai", gratuito:true, url:"https://api.groq.com/openai/v1/chat/completions", modelo:"openai/gpt-oss-20b", chave:"", limite_diario:400, ativo:true},
+  {nome:"gemini", tipo:"openai", gratuito:true, url:"https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", modelo:"gemini-3.5-flash-lite", chave:"", limite_diario:200, ativo:true},
   {nome:"nvidia", tipo:"openai", gratuito:true, url:"https://integrate.api.nvidia.com/v1/chat/completions", modelo:"meta/llama-3.3-70b-instruct", chave:"", limite_diario:200, ativo:true},
   {nome:"claude", tipo:"claude", gratuito:false, modelo:"claude-sonnet-5-5", chave:"", preco_in_1m:3, preco_out_1m:15, limite_mensal_usd:2, ativo:true}
 ];
@@ -314,8 +314,11 @@ const fmt = d => new Date(d).toLocaleString("pt-BR", {day:"2-digit", month:"2-di
 
 async function clima(){
   try{
-    const r = await fetch("https://wttr.in/" + encodeURIComponent(cfg.cidade) + "?format=%C+%t&lang=pt");
-    if (r.ok) return (await r.text()).trim();
+    const r = await fetch("https://wttr.in/" + encodeURIComponent(cfg.cidade) + "?format=j1&lang=pt");
+    if (!r.ok) return null;
+    const c = (await r.json()).current_condition[0];
+    const desc = (c.lang_pt && c.lang_pt[0] && c.lang_pt[0].value) || (c.weatherDesc && c.weatherDesc[0] && c.weatherDesc[0].value) || "";
+    return (desc ? desc + ", " : "") + c.temp_C + " graus";
   }catch(e){}
   return null;
 }
