@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kobi">
+<meta name="theme-color" content="#060b14">
+<title>Kobi</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%23060b14'/%3E%3Ccircle cx='90' cy='90' r='52' fill='none' stroke='%2300d4ff' stroke-width='8'/%3E%3Ccircle cx='90' cy='90' r='22' fill='%2300d4ff'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#060b14;--card:#0d1626;--line:#1b2a44;--acc:#00d4ff;--txt:#e6f1ff;--mut:#7f93b2;--ok:#3ddc97;--bad:#ff6b6b}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:16px/1.4 -apple-system,system-ui,sans-serif}
+body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+header{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.orb{width:34px;height:34px;border-radius:50%;border:3px solid var(--acc);display:grid;place-items:center;flex:none}
+.orb i{width:12px;height:12px;border-radius:50%;background:var(--acc);box-shadow:0 0 12px var(--acc)}
+.orb.on{animation:p 1s infinite}
+@keyframes p{50%{transform:scale(1.18);box-shadow:0 0 18px var(--acc)}}
+header h1{font-size:18px;margin:0;flex:1}
+header small{display:block;color:var(--mut);font-size:11px;font-weight:400}
+nav{display:flex;gap:6px;padding:8px 10px;overflow-x:auto;border-bottom:1px solid var(--line)}
+nav button{flex:none;background:var(--card);border:1px solid var(--line);color:var(--txt);border-radius:16px;padding:7px 13px;font-size:14px}
+nav button.sel{border-color:var(--acc);color:var(--acc)}
+main{flex:1;overflow-y:auto;padding:12px;-webkit-overflow-scrolling:touch}
+.pane{display:none}.pane.sel{display:block}
+.msg{max-width:88%;padding:9px 12px;border-radius:14px;margin:6px 0;white-space:pre-wrap;word-wrap:break-word}
+.me{background:#12345a;margin-left:auto;border-bottom-right-radius:4px}
+.ai{background:var(--card);border:1px solid var(--line);border-bottom-left-radius:4px}
+.sys{color:var(--mut);font-size:12px;text-align:center;margin:6px 0}
+footer{display:flex;gap:8px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--bg)}
+footer input{flex:1;background:var(--card);border:1px solid var(--line);color:var(--txt);border-radius:20px;padding:10px 14px;font-size:16px;min-width:0}
+.round{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--txt);font-size:20px;flex:none}
+.round.rec{background:var(--bad);border-color:var(--bad)}
+.round.go{background:var(--acc);color:#001018;border-color:var(--acc);font-weight:700}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+.card h3{margin:0 0 8px;font-size:15px;color:var(--acc)}
+.row{display:flex;gap:8px;align-items:center;margin:6px 0}
+.row>*{min-width:0}
+input.f,select.f,textarea.f{width:100%;background:#09111f;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:9px;font-size:16px}
+button.b{background:var(--acc);color:#001018;border:0;border-radius:8px;padding:9px 14px;font-weight:600;font-size:15px}
+button.b.s{background:var(--card);color:var(--txt);border:1px solid var(--line)}
+button.x{background:none;border:0;color:var(--bad);font-size:18px}
+.item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border:0}
+.mut{color:var(--mut);font-size:13px}
+.bar{height:8px;border-radius:4px;background:#09111f;overflow:hidden}
+.bar>div{height:100%;background:var(--ok)}
+.bar.w>div{background:var(--bad)}
+label.k{display:block;font-size:12px;color:var(--mut);margin-top:8px}
+</style>
+</head>
+<body>
+<header>
+  <div class="orb" id="orb"><i></i></div>
+  <h1>Kobi<small id="subt">assistente pessoal</small></h1>
+  <button class="round" id="mudo" title="Voz do Kobi" style="width:38px;height:38px;font-size:17px">🔊</button>
+</header>
+<nav id="nav">
+  <button data-p="chat" class="sel">Conversa</button>
+  <button data-p="agenda">Lembretes</button>
+  <button data-p="fin">Contas</button>
+  <button data-p="est">Estudos</button>
+  <button data-p="mem">Memória</button>
+  <button data-p="ias">IAs e créditos</button>
+</nav>
+<main id="main">
+  <section class="pane sel" id="p-chat"><div id="log"></div></section>
+
+  <section class="pane" id="p-agenda">
+    <div class="card"><h3>Novo lembrete</h3>
+      <input class="f" id="ag-t" placeholder="O que lembrar?">
+      <div class="row"><input class="f" id="ag-d" type="datetime-local"><button class="b" id="ag-add">Criar</button></div>
+      <div class="mut">No iPhone o aviso toca com o app aberto. Para alarme garantido com o app fechado, use também o app Lembretes.</div>
+    </div>
+    <div class="card"><h3>Próximos</h3><div id="ag-l"></div></div>
+  </section>
+
+  <section class="pane" id="p-fin">
+    <div class="card"><h3>Renda mensal</h3>
+      <div class="row"><input class="f" id="fi-r" inputmode="decimal" placeholder="R$ 0,00"><button class="b s" id="fi-rs">Salvar</button></div></div>
+    <div class="card"><h3>Nova conta</h3>
+      <input class="f" id="fi-n" placeholder="Nome (ex.: cartão, IPVA)">
+      <div class="row"><input class="f" id="fi-v" inputmode="decimal" placeholder="Valor"><input class="f" id="fi-d" inputmode="numeric" placeholder="Dia"><button class="b" id="fi-add">+</button></div></div>
+    <div class="card"><h3>Contas do mês</h3><div id="fi-l"></div><div id="fi-t" class="mut" style="margin-top:8px"></div></div>
+  </section>
+
+  <section class="pane" id="p-est">
+    <div class="card"><h3>Novo flashcard</h3>
+      <input class="f" id="es-p" placeholder="Pergunta">
+      <input class="f" id="es-r" placeholder="Resposta" style="margin-top:6px">
+      <div class="row"><button class="b" id="es-add">Criar</button><button class="b s" id="es-q">Gerar questão com IA</button></div>
+      <input class="f" id="es-tema" placeholder="Tema da questão (ex.: crase, regra de três)"></div>
+    <div class="card"><h3>Revisar</h3><div id="es-card" class="mut">Toque em Revisar para começar.</div>
+      <div class="row"><button class="b" id="es-rev">Revisar</button><button class="b s" id="es-show" style="display:none">Ver resposta</button></div></div>
+    <div class="card"><h3>Seus flashcards</h3><div id="es-l"></div></div>
+  </section>
+
+  <section class="pane" id="p-mem">
+    <div class="card"><h3>O que o Kobi sabe sobre você</h3><div id="me-l"></div>
+      <div class="row"><input class="f" id="me-n" placeholder="Novo fato"><button class="b" id="me-add">+</button></div></div>
+    <div class="card"><h3>Ajustes</h3>
+      <label class="k">Como o Kobi te chama</label><input class="f" id="c-usuario">
+      <label class="k">Palavra de ativação (modo escuta contínua)</label><input class="f" id="c-ativ">
+      <label class="k">Cidade (clima no resumo)</label><input class="f" id="c-cidade">
+      <div class="row"><button class="b" id="c-save">Salvar ajustes</button></div></div>
+  </section>
+
+  <section class="pane" id="p-ias">
+    <div class="card"><h3>Limite de gasto com IAs pagas</h3>
+      <label class="k">Total por mês (US$) — acima disso o Kobi só usa as gratuitas</label>
+      <input class="f" id="ia-lim" inputmode="decimal">
+      <div id="ia-gasto" class="mut" style="margin-top:8px"></div><div class="bar" id="ia-bar" style="margin-top:6px"><div></div></div></div>
+    <div id="ia-l"></div>
+    <div class="row"><button class="b" id="ia-save">Salvar IAs</button><button class="b s" id="ia-zera">Zerar contadores</button></div>
+    <div class="mut" style="margin-top:8px">A ordem é a prioridade: o Kobi usa a primeira disponível e passa para a próxima sozinho quando acabar o crédito, bater o limite ou der erro. Chaves ficam só neste aparelho. Confirme modelos, cotas gratuitas e preços nos sites de cada serviço.</div>
+  </section>
+</main>
+<footer id="foot">
+  <button class="round" id="mic" title="Falar">🎤</button>
+  <input id="txt" placeholder="Fale ou digite…" enterkeyhint="send" autocomplete="off">
+  <button class="round go" id="send">↑</button>
+</footer>
+
+<script>
+"use strict";
+/* ============================== armazenamento ============================== */
+const L = {
+  get(k, d){ try{ const v = localStorage.getItem("kobi_"+k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem("kobi_"+k, JSON.stringify(v)); }catch(e){} }
+};
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const brl = v => "R$ " + Number(v).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+const num = s => { s = String(s).trim(); if (s.includes(",")) s = s.replace(/\./g,"").replace(",","."); return parseFloat(s); };
+
+const PADRAO_IAS = [
+  {nome:"groq", tipo:"openai", gratuito:true, url:"https://api.groq.com/openai/v1/chat/completions", modelo:"llama-3.3-70b-versatile", chave:"", limite_diario:400, ativo:true},
+  {nome:"gemini", tipo:"openai", gratuito:true, url:"https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", modelo:"gemini-2.0-flash", chave:"", limite_diario:200, ativo:true},
+  {nome:"nvidia", tipo:"openai", gratuito:true, url:"https://integrate.api.nvidia.com/v1/chat/completions", modelo:"meta/llama-3.3-70b-instruct", chave:"", limite_diario:200, ativo:true},
+  {nome:"claude", tipo:"claude", gratuito:false, modelo:"claude-sonnet-5-5", chave:"", preco_in_1m:3, preco_out_1m:15, limite_mensal_usd:2, ativo:true}
+];
+let cfg = Object.assign({usuario:"chefe", ativacao:"kobi", cidade:"Cuiaba", limite_pago_total_usd:3, voz:true, provedores:PADRAO_IAS}, L.get("cfg", {}));
+let uso = L.get("uso", {});
+let mem = L.get("mem", {fatos:[], hist:[]});
+let agenda = L.get("agenda", []);
+let fin = L.get("fin", {renda:0, contas:[]});
+let cards = L.get("cards", []);
+const saveCfg = () => L.set("cfg", cfg);
+
+/* ================================= conversa ================================ */
+const log = $("#log");
+function bolha(txt, cls){
+  const d = document.createElement("div"); d.className = "msg " + cls; d.textContent = txt;
+  log.appendChild(d); $("#main").scrollTop = $("#main").scrollHeight; return d;
+}
+function aviso(txt){ const d = document.createElement("div"); d.className="sys"; d.textContent=txt; log.appendChild(d); $("#main").scrollTop = $("#main").scrollHeight; }
+
+/* ==================================== voz ================================== */
+let vozPt = null;
+function carregarVoz(){
+  const vs = speechSynthesis.getVoices();
+  vozPt = vs.find(v => /pt[-_]BR/i.test(v.lang)) || vs.find(v => /^pt/i.test(v.lang)) || null;
+}
+if ("speechSynthesis" in window){ carregarVoz(); speechSynthesis.onvoiceschanged = carregarVoz; }
+function falar(txt){
+  bolha(txt, "ai");
+  if (!cfg.voz || !("speechSynthesis" in window)) return;
+  try{
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(txt.replace(/[*_#`]/g,""));
+    u.lang = "pt-BR"; if (vozPt) u.voice = vozPt;
+    u.onstart = () => $("#orb").classList.add("on");
+    u.onend = u.onerror = () => $("#orb").classList.remove("on");
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+$("#mudo").onclick = () => { cfg.voz = !cfg.voz; saveCfg(); $("#mudo").textContent = cfg.voz ? "🔊" : "🔇"; if(!cfg.voz) speechSynthesis.cancel(); };
+$("#mudo").textContent = cfg.voz ? "🔊" : "🔇";
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, escutando = false;
+function escutar(){
+  if (!SR){ aviso("Seu navegador não tem reconhecimento de voz. Use o teclado (no iPhone, o microfone do teclado também serve)."); return; }
+  if (escutando){ rec && rec.stop(); return; }
+  rec = new SR(); rec.lang = "pt-BR"; rec.interimResults = false; rec.maxAlternatives = 1;
+  rec.onstart = () => { escutando = true; $("#mic").classList.add("rec"); $("#orb").classList.add("on"); };
+  rec.onend = () => { escutando = false; $("#mic").classList.remove("rec"); $("#orb").classList.remove("on"); };
+  rec.onerror = e => { aviso("Microfone: " + (e.error === "not-allowed" ? "permissão negada (Ajustes > Safari > Microfone)." : e.error)); };
+  rec.onresult = e => { const t = e.results[0][0].transcript; entrada(t); };
+  try{ speechSynthesis.cancel(); rec.start(); }catch(e){}
+}
+$("#mic").onclick = escutar;
+function enviarTexto(){ const t = $("#txt").value.trim(); if(!t) return; $("#txt").value = ""; entrada(t); }
+$("#send").onclick = enviarTexto;
+$("#txt").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); enviarTexto(); } });
+
+/* ==================== IAs com troca automática e limite =================== */
+const PALAVRAS_COTA = ["quota","credit","billing","insufficient","exceeded","balance"];
+let ultimaIA = null;
+
+function usoDe(nome){
+  const agora = new Date(), dia = agora.toISOString().slice(0,10), mes = dia.slice(0,7);
+  const u = uso[nome] = uso[nome] || {};
+  if (u.dia !== dia){ u.dia = dia; u.chamadas_dia = 0; }
+  if (u.mes !== mes){ u.mes = mes; u.usd_mes = 0; u.chamadas_mes = 0; }
+  if (!u.bloqueado_ate) u.bloqueado_ate = 0;
+  return u;
+}
+const gastoPago = () => cfg.provedores.filter(p => !p.gratuito).reduce((s,p) => s + usoDe(p.nome).usd_mes, 0);
+function disponivel(p){
+  if (p.ativo === false || !p.chave) return false;
+  const u = usoDe(p.nome);
+  if (u.bloqueado_ate > Date.now()) return false;
+  if (p.limite_diario && u.chamadas_dia >= p.limite_diario) return false;
+  if (!p.gratuito){
+    if (p.limite_mensal_usd && u.usd_mes >= p.limite_mensal_usd) return false;
+    if (cfg.limite_pago_total_usd && gastoPago() >= cfg.limite_pago_total_usd) return false;
+  }
+  return true;
+}
+function bloquear(p, minutos, ateAmanha){
+  const u = usoDe(p.nome);
+  if (ateAmanha){ const d = new Date(); d.setDate(d.getDate()+1); d.setHours(0,1,0,0); u.bloqueado_ate = d.getTime(); }
+  else u.bloqueado_ate = Date.now() + minutos*60000;
+}
+async function chamar(p, sistema, msgs){
+  let r, corpo;
+  if (p.tipo === "claude"){
+    r = await fetch("https://api.anthropic.com/v1/messages", {method:"POST",
+      headers:{"content-type":"application/json","x-api-key":p.chave,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body: JSON.stringify({model:p.modelo, max_tokens:700, system:sistema, messages:msgs})});
+  } else {
+    r = await fetch(p.url, {method:"POST",
+      headers:{"content-type":"application/json","authorization":"Bearer "+p.chave},
+      body: JSON.stringify({model:p.modelo, max_tokens:700, messages:[{role:"system",content:sistema}, ...msgs]})});
+  }
+  if (!r.ok){
+    const txt = (await r.text().catch(()=>"")).toLowerCase();
+    const e = new Error(r.status + " " + txt.slice(0,100)); e.codigo = r.status; e.corpo = txt;
+    e.espera = parseInt(r.headers.get("retry-after") || "0", 10) || 0; throw e;
+  }
+  corpo = await r.json();
+  if (p.tipo === "claude"){
+    const us = corpo.usage || {};
+    return [corpo.content[0].text.trim(), us.input_tokens||0, us.output_tokens||0];
+  }
+  const us = corpo.usage || {};
+  return [corpo.choices[0].message.content.trim(), us.prompt_tokens||0, us.completion_tokens||0];
+}
+async function llm(sistema, msgs){
+  for (const p of cfg.provedores){
+    if (!disponivel(p)) continue;
+    try{
+      let [texto, tin, tout] = await chamar(p, sistema, msgs);
+      const u = usoDe(p.nome); u.chamadas_dia++; u.chamadas_mes++;
+      if (!p.gratuito){
+        if (!tin && !tout){ tin = Math.round((sistema + JSON.stringify(msgs)).length/4); tout = Math.round(texto.length/4); }
+        u.usd_mes += (tin*(p.preco_in_1m||0) + tout*(p.preco_out_1m||0))/1e6;
+      }
+      L.set("uso", uso);
+      if (ultimaIA && ultimaIA !== p.nome) aviso("Troquei para a IA " + p.nome);
+      ultimaIA = p.nome; $("#subt").textContent = "IA: " + p.nome;
+      return texto;
+    }catch(e){
+      const c = e.codigo, corpo = e.corpo || "";
+      if (c === 401 || c === 403) bloquear(p, 1440);
+      else if (c === 402 || ((c === 400 || c === 429) && PALAVRAS_COTA.some(k => corpo.includes(k)))) bloquear(p, 0, true);
+      else if (c === 429) bloquear(p, Math.max(2, Math.floor((e.espera||0)/60)+1));
+      else bloquear(p, 5);
+      aviso(p.nome + " indisponível (" + (c || "rede") + "); tentando a próxima IA.");
+      L.set("uso", uso);
+    }
+  }
+  L.set("uso", uso);
+  return "Todas as minhas IAs estão indisponíveis agora, por limite de créditos, falta de chave ou falta de conexão. Confira a aba IAs e créditos.";
+}
+function sistemaPrompt(){
+  let s = `Você é o Kobi, assistente pessoal em português do Brasil, inspirado no Jarvis: educado, direto, com leve humor elegante. Trate o usuário por '${cfg.usuario}'. Responda em no máximo 3 frases curtas, pois suas respostas serão faladas em voz alta. Não use markdown, listas nem emojis.`;
+  if (mem.fatos.length) s += " Fatos que você sabe sobre o usuário: " + mem.fatos.slice(-30).join("; ") + ".";
+  return s;
+}
+async function conversar(t){
+  mem.hist = (mem.hist || []).slice(-10); mem.hist.push({role:"user", content:t});
+  const r = await llm(sistemaPrompt(), mem.hist);
+  mem.hist.push({role:"assistant", content:r}); mem.hist = mem.hist.slice(-20); L.set("mem", mem);
+  return r;
+}
+
+/* ================================ comandos ================================= */
+const sem = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+function parseQuando(t){
+  const agora = new Date();
+  let m = t.match(/daqui a (\d+) (minutos?|horas?)/);
+  if (m){
+    const n = +m[1], d = new Date(agora.getTime() + n*(m[2].startsWith("minuto") ? 60000 : 3600000));
+    return [d, t.replace(m[0], "")];
+  }
+  m = t.match(/\bas\s*(\d{1,2})(?:[:h](\d{2}))?\s*(?:h|horas)?/);
+  if (m){
+    const h = +m[1], mi = +(m[2] || 0); if (h > 23 || mi > 59) return [null, t];
+    const d = new Date(agora); d.setHours(h, mi, 0, 0);
+    let resto = t.replace(m[0], "");
+    if (/amanha/.test(resto)){ d.setDate(d.getDate()+1); resto = resto.replace("amanha",""); }
+    else if (d <= agora) d.setDate(d.getDate()+1);
+    return [d, resto];
+  }
+  return [null, t];
+}
+const fmt = d => new Date(d).toLocaleString("pt-BR", {day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit"});
+
+async function clima(){
+  try{
+    const r = await fetch("https://wttr.in/" + encodeURIComponent(cfg.cidade) + "?format=%C+%t&lang=pt");
+    if (r.ok) return (await r.text()).trim();
+  }catch(e){}
+  return null;
+}
+
+async function comando(orig){
+  const t = sem(orig);
+
+  if (/\b(ajuda|o que voce faz)\b/.test(t))
+    return "Eu faço: conversar, lembretes, resumo matinal, contas, flashcards e questões, guardo o que você mandar lembrar, e troco de IA sozinho quando o crédito acaba. No iPhone eu não controlo apps nem arquivos; isso só a versão do computador faz.";
+
+  if (/(quanto gastei|gasto das ias|status das ias|uso das ias|creditos|qual ia)/.test(t)){
+    const partes = cfg.provedores.map(p => {
+      const u = usoDe(p.nome);
+      return p.nome + ": " + (p.gratuito ? u.chamadas_dia + " chamadas hoje" : u.usd_mes.toFixed(2) + " dólares no mês") + (disponivel(p) ? "" : ", indisponível agora");
+    });
+    return partes.join(". ") + `. Gasto pago total: ${gastoPago().toFixed(2)} de ${Number(cfg.limite_pago_total_usd).toFixed(2)} dólares.`;
+  }
+
+  let m = t.match(/(?:lembre que|memorize que|memorize|guarde que|anote que)\s+(.+)/);
+  if (m){ mem.fatos.push(orig.slice(orig.toLowerCase().indexOf(m[1].slice(0,6)))); L.set("mem", mem); renderMem(); return "Anotado, vou me lembrar disso."; }
+  if (/o que voce sabe (sobre |de )?mim/.test(t))
+    return mem.fatos.length ? "Eu sei que: " + mem.fatos.slice(-8).join("; ") : "Ainda não guardei nada sobre você.";
+
+  if (/me lembre|lembre-me|lembrete|me avise|me avisa/.test(t) && !/meus lembretes|quais.*lembretes/.test(t)){
+    const [quando, resto0] = parseQuando(t);
+    let texto = resto0.replace(/(me lembre|lembre-me|me avise|me avisa|lembrete|criar|crie)\b/, " ").replace(/^\s*(de|para|que)\s+/, "").replace(/\s+/g," ").replace(/^[\s:,.]+|[\s:,.]+$/g,"");
+    if (!quando || !texto) return "Diga assim: me lembre de tomar água às 15 e 30, ou daqui a 20 minutos.";
+    agenda.push({texto, quando: quando.getTime(), feito:false}); L.set("agenda", agenda); renderAgenda();
+    return `Combinado. Lembrete de ${texto} para ${fmt(quando)}.`;
+  }
+  if (/(minha agenda|meus lembretes|quais.*lembretes|o que tenho hoje)/.test(t)){
+    const ag = agenda.filter(l => !l.feito).sort((a,b) => a.quando - b.quando);
+    return ag.length ? "Você tem: " + ag.slice(0,6).map(l => `${l.texto} em ${fmt(l.quando)}`).join("; ") : "Sua agenda está livre.";
+  }
+
+  if (/bom dia|resumo (matinal|do dia)|briefing/.test(t)){
+    const d = new Date(), dias = ["domingo","segunda","terça","quarta","quinta","sexta","sábado"];
+    let s = `Bom dia, ${cfg.usuario}. Hoje é ${dias[d.getDay()]}, ${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}.`;
+    const c = await clima(); if (c) s += ` Clima em ${cfg.cidade}: ${c}.`;
+    const hoje = agenda.filter(l => !l.feito && new Date(l.quando).toDateString() === d.toDateString());
+    if (hoje.length) s += " Hoje você tem: " + hoje.map(l => l.texto).join("; ") + ".";
+    const perto = fin.contas.filter(c => c.dia - d.getDate() >= 0 && c.dia - d.getDate() <= 3);
+    if (perto.length) s += " Contas vencendo em breve: " + perto.map(c => `${c.nome} dia ${c.dia}`).join("; ") + ".";
+    return s;
+  }
+
+  m = t.match(/(?:adicionar|adicione|nova|cadastrar) conta (.+?) (?:de |valor )?(?:r\$ ?)?(\d+(?:[.,]\d+)*) (?:vence )?dia (\d{1,2})/);
+  if (m){ fin.contas.push({nome:m[1].trim(), valor:num(m[2]), dia:+m[3]}); L.set("fin", fin); renderFin(); return `Conta ${m[1].trim()} de ${brl(num(m[2]))} anotada, vence dia ${m[3]}.`; }
+  m = t.match(/renda (?:e|de)?\s*(?:r\$ ?)?(\d+(?:[.,]\d+)*)/);
+  if (m && !/conta/.test(t)){ fin.renda = num(m[1]); L.set("fin", fin); renderFin(); return "Renda mensal registrada: " + brl(fin.renda) + "."; }
+  m = t.match(/(?:remover|apagar|pagar|paguei) conta (.+)/);
+  if (m){ const a = fin.contas.length; fin.contas = fin.contas.filter(c => !sem(c.nome).includes(m[1].trim())); L.set("fin", fin); renderFin(); return fin.contas.length < a ? "Conta removida." : "Não encontrei essa conta."; }
+  if (/(minhas contas|total das contas|quanto (eu )?(devo|gasto)|quanto sobra|resumo financeiro)/.test(t)){
+    if (!fin.contas.length) return "Nenhuma conta cadastrada ainda.";
+    const total = fin.contas.reduce((s,c) => s + c.valor, 0);
+    let s = fin.contas.slice().sort((a,b) => a.dia - b.dia).map(c => `${c.nome} ${brl(c.valor)} dia ${c.dia}`).join("; ") + `. Total: ${brl(total)}.`;
+    if (fin.renda){ const sobra = fin.renda - total; s += ` Sobram ${brl(sobra)} da sua renda` + (sobra > 0 ? ", dá para investir parte." : ", você está no vermelho."); }
+    return s;
+  }
+
+  m = orig.match(/flashcard\s+(.+?)\s*(?:::|resposta)\s*(.+)/i);
+  if (m){ cards.push({p:m[1].trim(), r:m[2].trim()}); L.set("cards", cards); renderCards(); return "Flashcard criado."; }
+  if (/\b(estudar|revisar flashcards|quiz)\b/.test(t)){ abaVai("est"); revisar(); return cards.length ? "Vamos revisar. Veja a aba Estudos." : "Sem flashcards ainda."; }
+  m = t.match(/questao (?:sobre|de) (.+)/);
+  if (m) return await questao(m[1]);
+
+  m = t.match(/(?:pesquise|pesquisar|busque|buscar|procure)(?: na internet| na web| no google)?(?: sobre| por)?\s+(.+)/);
+  if (m){ window.open("https://www.google.com/search?q=" + encodeURIComponent(m[1]), "_blank"); return "Abri a busca por " + m[1] + "."; }
+
+  m = t.match(/^abr(?:ir|a|e)\s+(?:o |a )?(youtube|google|gmail|whatsapp|instagram|maps|claude)/);
+  if (m){
+    const sites = {youtube:"https://www.youtube.com", google:"https://www.google.com", gmail:"https://mail.google.com", whatsapp:"https://web.whatsapp.com", instagram:"https://www.instagram.com", maps:"https://maps.google.com", claude:"https://claude.ai"};
+    window.open(sites[m[1]], "_blank"); return "Abrindo " + m[1] + ".";
+  }
+  return null;
+}
+
+async function entrada(txt){
+  bolha(txt, "me");
+  abaVai("chat");
+  const ele = bolha("…", "ai");
+  let r = null;
+  try{ r = await comando(txt); }catch(e){ r = "Tive um problema nessa função."; }
+  if (r === null) r = await conversar(txt);
+  ele.remove(); falar(r);
+}
+
+async function questao(tema){
+  return await llm("Você é professor de concursos estilo banca Cesgranrio, nível médio. Português do Brasil.",
+    [{role:"user", content:`Crie 1 questão de múltipla escolha (A a E) sobre ${tema}. Mostre enunciado e alternativas. NÃO revele o gabarito ainda.`}]);
+}
+
+/* ================================ lembretes ================================ */
+function renderAgenda(){
+  const ag = agenda.filter(l => !l.feito).sort((a,b) => a.quando - b.quando);
+  $("#ag-l").innerHTML = ag.length ? ag.map((l,i) => `<div class="item"><div>${esc(l.texto)}<div class="mut">${fmt(l.quando)}</div></div><button class="x" data-q="${l.quando}">✕</button></div>`).join("") : '<div class="mut">Nenhum lembrete.</div>';
+}
+$("#ag-l").onclick = e => { const q = e.target.dataset.q; if(!q) return; agenda = agenda.filter(l => String(l.quando) !== q); L.set("agenda", agenda); renderAgenda(); };
+$("#ag-add").onclick = () => {
+  const t = $("#ag-t").value.trim(), d = $("#ag-d").value; if (!t || !d) return;
+  agenda.push({texto:t, quando:new Date(d).getTime(), feito:false}); L.set("agenda", agenda);
+  $("#ag-t").value = ""; $("#ag-d").value = ""; renderAgenda();
+};
+function vigia(){
+  const agora = Date.now(); let mudou = false;
+  agenda.forEach(l => { if (!l.feito && l.quando <= agora){ l.feito = true; mudou = true;
+    falar(`${cfg.usuario}, lembrete: ${l.texto}`);
+    try{ if ("Notification" in window && Notification.permission === "granted") new Notification("Kobi", {body:l.texto}); }catch(e){}
+    try{ navigator.vibrate && navigator.vibrate([200,100,200]); }catch(e){}
+  }});
+  if (mudou){ L.set("agenda", agenda); renderAgenda(); }
+}
+setInterval(vigia, 15000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) vigia(); });
+
+/* ================================== contas ================================= */
+function renderFin(){
+  $("#fi-r").value = fin.renda || "";
+  const cs = fin.contas.slice().sort((a,b) => a.dia - b.dia);
+  $("#fi-l").innerHTML = cs.length ? cs.map(c => `<div class="item"><div>${esc(c.nome)}<div class="mut">dia ${c.dia}</div></div><div>${brl(c.valor)} <button class="x" data-n="${esc(c.nome)}">✕</button></div></div>`).join("") : '<div class="mut">Nenhuma conta.</div>';
+  const total = fin.contas.reduce((s,c) => s + c.valor, 0);
+  $("#fi-t").textContent = `Total: ${brl(total)}` + (fin.renda ? ` · Sobra: ${brl(fin.renda - total)}` : "");
+}
+$("#fi-rs").onclick = () => { const v = num($("#fi-r").value); if (!isNaN(v)){ fin.renda = v; L.set("fin", fin); renderFin(); } };
+$("#fi-add").onclick = () => {
+  const n = $("#fi-n").value.trim(), v = num($("#fi-v").value), d = parseInt($("#fi-d").value, 10);
+  if (!n || isNaN(v) || !(d >= 1 && d <= 31)) return;
+  fin.contas.push({nome:n, valor:v, dia:d}); L.set("fin", fin);
+  $("#fi-n").value = $("#fi-v").value = $("#fi-d").value = ""; renderFin();
+};
+$("#fi-l").onclick = e => { const n = e.target.dataset.n; if(!n) return; fin.contas = fin.contas.filter(c => c.nome !== n); L.set("fin", fin); renderFin(); };
+
+/* ================================== estudos ================================ */
+let atual = null;
+function renderCards(){
+  $("#es-l").innerHTML = cards.length ? cards.map((c,i) => `<div class="item"><div>${esc(c.p)}<div class="mut">${esc(c.r)}</div></div><button class="x" data-i="${i}">✕</button></div>`).join("") : '<div class="mut">Nenhum flashcard.</div>';
+}
+$("#es-add").onclick = () => { const p = $("#es-p").value.trim(), r = $("#es-r").value.trim(); if(!p||!r) return; cards.push({p,r}); L.set("cards", cards); $("#es-p").value = $("#es-r").value = ""; renderCards(); };
+$("#es-l").onclick = e => { const i = e.target.dataset.i; if(i === undefined) return; cards.splice(+i,1); L.set("cards", cards); renderCards(); };
+function revisar(){
+  if (!cards.length){ $("#es-card").textContent = "Crie flashcards primeiro."; return; }
+  atual = cards[Math.floor(Math.random()*cards.length)];
+  $("#es-card").textContent = atual.p; $("#es-show").style.display = "";
+}
+$("#es-rev").onclick = revisar;
+$("#es-show").onclick = () => { if (atual) $("#es-card").textContent = atual.p + "\n→ " + atual.r; };
+$("#es-q").onclick = async () => { const t = $("#es-tema").value.trim(); if(!t) return; entrada("questão sobre " + t); };
+
+/* ================================= memória ================================= */
+function renderMem(){
+  $("#me-l").innerHTML = mem.fatos.length ? mem.fatos.map((f,i) => `<div class="item"><div>${esc(f)}</div><button class="x" data-i="${i}">✕</button></div>`).join("") : '<div class="mut">Nada guardado ainda.</div>';
+  $("#c-usuario").value = cfg.usuario; $("#c-ativ").value = cfg.ativacao; $("#c-cidade").value = cfg.cidade;
+}
+$("#me-add").onclick = () => { const v = $("#me-n").value.trim(); if(!v) return; mem.fatos.push(v); L.set("mem", mem); $("#me-n").value = ""; renderMem(); };
+$("#me-l").onclick = e => { const i = e.target.dataset.i; if(i === undefined) return; mem.fatos.splice(+i,1); L.set("mem", mem); renderMem(); };
+$("#c-save").onclick = () => { cfg.usuario = $("#c-usuario").value.trim() || "chefe"; cfg.ativacao = $("#c-ativ").value.trim().toLowerCase() || "kobi"; cfg.cidade = $("#c-cidade").value.trim() || "Cuiaba"; saveCfg(); aviso("Ajustes salvos."); };
+
+/* ============================== IAs e créditos ============================= */
+function renderIAs(){
+  $("#ia-lim").value = cfg.limite_pago_total_usd;
+  const g = gastoPago(), lim = cfg.limite_pago_total_usd || 1;
+  $("#ia-gasto").textContent = `Gasto pago no mês: US$ ${g.toFixed(2)} de US$ ${Number(cfg.limite_pago_total_usd).toFixed(2)}`;
+  const bar = $("#ia-bar"); bar.classList.toggle("w", g/lim > 0.8); bar.firstElementChild.style.width = Math.min(100, g/lim*100) + "%";
+  $("#ia-l").innerHTML = cfg.provedores.map((p,i) => {
+    const u = usoDe(p.nome);
+    const estado = !p.chave ? "sem chave" : disponivel(p) ? "disponível" : "indisponível agora";
+    const uso_ = p.gratuito ? `${u.chamadas_dia}/${p.limite_diario || "∞"} chamadas hoje` : `US$ ${u.usd_mes.toFixed(2)} / ${p.limite_mensal_usd || "∞"} no mês`;
+    return `<div class="card" data-i="${i}"><h3>${i+1}. ${esc(p.nome)} · ${p.gratuito ? "gratuita" : "paga"} <span class="mut">(${estado})</span></h3>
+      <div class="mut">${uso_}</div>
+      <label class="k">Chave de API</label><input class="f" type="password" data-f="chave" value="${esc(p.chave)}" autocomplete="off" placeholder="cole sua chave">
+      <label class="k">Modelo</label><input class="f" data-f="modelo" value="${esc(p.modelo)}">
+      <label class="k">${p.gratuito ? "Limite de chamadas por dia" : "Limite mensal desta IA (US$)"}</label><input class="f" inputmode="decimal" data-f="${p.gratuito ? "limite_diario" : "limite_mensal_usd"}" value="${p.gratuito ? (p.limite_diario||"") : (p.limite_mensal_usd||"")}">
+      ${p.gratuito ? "" : `<div class="row"><div style="flex:1"><label class="k">US$/1M entrada</label><input class="f" inputmode="decimal" data-f="preco_in_1m" value="${p.preco_in_1m||""}"></div><div style="flex:1"><label class="k">US$/1M saída</label><input class="f" inputmode="decimal" data-f="preco_out_1m" value="${p.preco_out_1m||""}"></div></div>`}
+      <div class="row"><label class="mut"><input type="checkbox" data-f="ativo" ${p.ativo !== false ? "checked" : ""}> ativa</label>
+      <button class="b s" data-mv="-1">↑</button><button class="b s" data-mv="1">↓</button></div></div>`;
+  }).join("");
+}
+function lerIAs(){
+  document.querySelectorAll("#ia-l .card").forEach(card => {
+    const p = cfg.provedores[+card.dataset.i];
+    card.querySelectorAll("[data-f]").forEach(el => {
+      const f = el.dataset.f;
+      if (f === "ativo") p.ativo = el.checked;
+      else if (["limite_diario","limite_mensal_usd","preco_in_1m","preco_out_1m"].includes(f)){ const v = num(el.value); p[f] = isNaN(v) ? 0 : v; }
+      else p[f] = el.value.trim();
+    });
+  });
+  const lim = num($("#ia-lim").value); cfg.limite_pago_total_usd = isNaN(lim) ? 0 : lim;
+}
+$("#ia-save").onclick = () => { lerIAs(); saveCfg(); renderIAs(); aviso("IAs salvas."); };
+$("#ia-zera").onclick = () => { uso = {}; L.set("uso", uso); renderIAs(); aviso("Contadores zerados."); };
+$("#ia-l").onclick = e => {
+  const mv = e.target.dataset.mv; if (!mv) return;
+  lerIAs(); const i = +e.target.closest(".card").dataset.i, j = i + +mv;
+  if (j < 0 || j >= cfg.provedores.length) return;
+  [cfg.provedores[i], cfg.provedores[j]] = [cfg.provedores[j], cfg.provedores[i]]; saveCfg(); renderIAs();
+};
+
+/* ================================== abas =================================== */
+function abaVai(n){
+  document.querySelectorAll("#nav button").forEach(b => b.classList.toggle("sel", b.dataset.p === n));
+  document.querySelectorAll(".pane").forEach(p => p.classList.toggle("sel", p.id === "p-" + n));
+  $("#foot").style.display = (n === "chat") ? "" : "none";
+  if (n === "ias") renderIAs();
+  if (n === "chat") $("#main").scrollTop = $("#main").scrollHeight;
+}
+$("#nav").onclick = e => { const n = e.target.dataset.p; if (n) abaVai(n); };
+
+renderAgenda(); renderFin(); renderCards(); renderMem();
+aviso("Toque no 🎤 para falar com o Kobi ou digite. Diga “ajuda” para ver o que ele faz.");
+if (!cfg.provedores.some(p => p.chave)) aviso("Falta configurar pelo menos uma IA na aba IAs e créditos.");
+try{ if ("Notification" in window && Notification.permission === "default") $("#ag-add").addEventListener("click", () => Notification.requestPermission(), {once:true}); }catch(e){}
+</script>
+</body>
+</html>
